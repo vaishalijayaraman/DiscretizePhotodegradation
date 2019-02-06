@@ -110,27 +110,8 @@ def explicit(grid, ci_grid, cd_grid, cf_grid, t0, tf, t_step, x0, xf, x_step, al
 			cd_grid[i][j] = cd
 			cf_grid[i][j] = cf
 
-			#print("sum is: ", ci + cd + cf)
-			# print("ci: ", ci)
-			# print("cd: ", cd)
-			# print("cf: ", cf)
+			grid[i][j] = prev[j] + (-1 * (t_step) * int_star * mult)
 
-			v = computeIntensity(prev, j, alpha_pd_star, alpha_deg_star, x_num, prev_ci[j], prev_cd[j], prev_cf[j])
-			#print("the intensity is: ", v)
-			grid[i][j] = prev[j] + (-1 * (t_step) * v)
-
-		# print(" ")
-		# print(i)
-		# print(grid)
-		# print("ci: ")
-		# print(ci_grid)
-		# print("cd: ")
-		# print(cd_grid)
-		# print("cf: ")
-		# print(cf_grid)
-	# print("ci: ", ci_grid)
-	# print("cd: ", cd_grid)
-	# print("cf: ", cf_grid)
 	return grid
 
 def get_diff_f(x0, xf, x_step, x_num, cf_grid, i, j):
