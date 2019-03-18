@@ -222,7 +222,7 @@ def isInside(x1, y1, x2, y2, x3, y3, x, y):
     A3 = area (x1, y1, x2, y2, x, y) 
       
     # Check if sum of A1, A2 and A3 is same as A 
-    return (A == A1 + A2 + A3) ? True : False 
+    return True if (A == A1 + A2 + A3) else False 
 
 # MAIN 
 
