@@ -18,6 +18,8 @@ from sympy import *
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import cm
 
+import cv2
+
 # PARAMETERS
 I0 = 20 #intensity of incident light (mWcm-2)
 I_star = 0 #intensity of light (mWcm-2)
@@ -62,6 +64,10 @@ alpha_deg_star = alpha_deg*L*c_pd0
 D = 10**-6 #diffusion coefficient
 D = 0
 D_star = D/(k * I0 * (L**2)) 
+
+f = 20 #cross-link functionality
+kB = 1.38064852 * 10**-23 #boltzmann constant in m2 kg s-2 K-1
+T = 1 #absolute temperature in K
 
 # FUNCTIONS
 # PRETTY PRINT
@@ -114,56 +120,123 @@ def explicit(grid, ci_grid, cd_grid, cf_grid, t0, tf, t_step, x0, xf, x_step, al
 
 	return grid
 
+# NEWTON'S METHOD
+def newton(f,Df,x0,epsilon,max_iter):
+	xn = x0
+	for n in range(0,max_iter):
+		fxn = f(xn)
+		if abs(fxn) < epsilon:
+			#print('Found solution after',n,'iterations.')
+			return xn
+		Dfxn = Df(xn)
+		if Dfxn == 0:
+			#print('Zero derivative. No solution found.')
+			#return None
+			return 0
+		xn = xn - fxn/Dfxn
+	#print('Exceeded maximum iterations. No solution found.')
+	#return None
+	return 0
+
+# IMPLICIT METHOD
+def implicit(grid, ci_grid, cd_grid, cf_grid, t0, tf, t_step, x0, xf, x_step, alpha_pd_star, alpha_deg_star, x_num, ci, cd, cf):
+	for i in range (1, t_num): 
+		prev = grid[(i-1)]
+
+		prev_ci = ci_grid[(i-1)]
+		prev_cd = cd_grid[(i-1)]
+		prev_cf = cf_grid[(i-1)]
+		
+		for j in range(0, x_num):
+
+			int_star = computeIntensity(prev, j, alpha_pd_star, alpha_deg_star, x_num, prev_ci[j], prev_cd[j], prev_cf[j])
+
+			f_ci = lambda x: x - prev_ci[j] + (2 * t_step * int_star * (x**2)) + ((0.5) * t_step * int_star * (prev_cd[j]**2)) + (2 * t_step * int_star * x * prev_cd[j])
+			Df_ci = lambda x: 1 + (4 * t_step * int_star) - (2 * t_step * (x**2) * (alpha_pd_star/x_num) * int_star) + (2 * t_step * int_star * prev_cd[j]) - (2 * t_step * x * prev_cd[j] * (alpha_pd_star/x_num) * int_star)
+			value_ci = newton(f_ci,Df_ci,prev_ci[j],1e-10,10)
+			ci_grid[i][j] = value_ci
+
+			f_cd = lambda x: x - prev_cd[j] + (2 * t_step * int_star * (((ci_0) + (cd_0/2)) - (2 * prev_ci[j]) - x) * (prev_ci[j] + x/2))
+			Df_cd = lambda x: 1 + (2 * t_step * int_star * ((-1 * (prev_ci[j] + (x/2))) + (0.5 * (((ci_0) + (cd_0/2)) - (2 * prev_ci[j]) - x)))) - (2 * t_step * int_star * ((((ci_0) + (cd_0/2)) - (2 * prev_ci[j]) - x) * (prev_ci[j] + x/2)) * ((alpha_pd_star + alpha_deg_star)/(2*x_num))) 
+			value_cd = newton(f_cd,Df_cd,prev_cd[j],1e-10,10)
+			cd_grid[i][j] = value_cd
+
+			f_cf = lambda x: x - prev_cf[j] + (2 * t_step * int_star * (prev_ci[j] + (prev_cd[j]/2)) * (prev_ci[j] + (prev_cd[j]/2) - ci_0 - (cd_0/2)))
+			Df_cf = lambda x: 1 - (2 * t_step * ((prev_ci[j] + (prev_cd[j]/2)) * (prev_ci[j] + (prev_cd[j]/2) - ci_0 - (cd_0/2))) * int_star * (alpha_deg_star/x_num))
+			value_cf = newton(f_cf,Df_cf,prev_cf[j],1e-10,10)
+			diff_f = get_diff_f(x0, xf, x_step, x_num, cf_grid, i, j)
+			cf_grid[i][j] = value_cf + (D_star * diff_f * t_step) #diffusion
+
+			#print("the vals are: ", value_ci, " and ", value_cd, " and ", value_cf)
+			value = computeIntensity(prev, j, alpha_pd_star, alpha_deg_star, x_num, value_ci, value_cd, value_cf)
+			mult = value_ci + (value_cd/2)
+			grid[i][j] = prev[j] + (-1 * (t_step) * value * mult)
+			#print("match is: ", grid[i][j])
+		#print("next i")
+
+	return grid
+
+# DIFFUSION TERM
 def get_diff_f(x0, xf, x_step, x_num, cf_grid, i, j):
-	val = 0
+	v = 0
 	vals = cf_grid[i-1]
-	# print("vals: ", vals)
 
 	if j==0:
-		val = vals[j+1] - vals[j]
+		v = vals[j+1] - vals[j]
 	elif j==x_num-1:
-		val = vals[j-1] - vals[j]
+		v = vals[j-1] - vals[j]
 	else:
-		val = vals[j+1] - 2*vals[j] + vals[j-1]
+		vm= vals[j+1] - 2*vals[j] + vals[j-1]
 
-	val = val/(x_num**2)
-	# print("diff is: ", val)
-	return val
+	v = v/(x_num**2)
+	return v
 
-# # NEWTON'S METHOD
-# def newton(f,Df,x0,epsilon,max_iter):
-# 	xn = x0
-# 	for n in range(0,max_iter):
-# 		fxn = f(xn)
-# 		if abs(fxn) < epsilon:
-# 			#print('Found solution after',n,'iterations.')
-# 			return xn
-# 		Dfxn = Df(xn)
-# 		if Dfxn == 0:
-# 			#print('Zero derivative. No solution found.')
-# 			return None
-# 		xn = xn - fxn/Dfxn
-# 	#print('Exceeded maximum iterations. No solution found.')
-# 	return None
+#MODULUS
+def modulus(grid, modulus_grid, t0, tf, t_step, x0, xf, x_step, f, kB, T):
+	A = 1-(2/f)
+	for i in range (1, t_num):
+		for j in range(0, x_num):
+			modulus_grid[i][j] = A * grid[i][j] * kB * T
+	return modulus_grid
 
-# # IMPLICIT METHOD
-# def implicit(grid, t0, tf, t_step, x0, xf, x_step, alpha_pd_star, alpha_deg_star, x_num):
-# 	for i in range (1, t_num): 
-# 		prev = grid[(i-1)]
-		
-# 		for j in range(0, x_num):
-# 			v = computeIntensity(prev, j, alpha_pd_star, alpha_deg_star, x_num)
+#SWELLING
+def swelling(modulus_grid, swelling_grid, t0, tf, t_step, x0, xf, x_step):
+	for i in range (1, t_num):
+		for j in range(0, x_num):
+			swelling_grid[i][j] = modulus_grid[i][j]**0.4
+	return swelling_grid
 
-# 			f = lambda x: x - prev[j] + (t_step * v * x)
-
-# 			Df = lambda x: 1 + (t_step * v) + (-1 * t_step * x * ((alpha_deg_star + alpha_pd_star)/x_num) * v)
-
-# 			value = newton(f,Df,prev[j],1e-10,10)
-# 			grid[i][j] = value
-
-# 	return grid
+#TRIANGLE
+def isInside(x1, y1, x2, y2, x3, y3, x, y): 
+  
+    # Calculate area of triangle ABC 
+    A = area (x1, y1, x2, y2, x3, y3) 
+  
+    # Calculate area of triangle PBC  
+    A1 = area (x, y, x2, y2, x3, y3) 
+      
+    # Calculate area of triangle PAC  
+    A2 = area (x1, y1, x, y, x3, y3) 
+      
+    # Calculate area of triangle PAB  
+    A3 = area (x1, y1, x2, y2, x, y) 
+      
+    # Check if sum of A1, A2 and A3 is same as A 
+    return (A == A1 + A2 + A3) ? True : False 
 
 # MAIN 
+
+# LOAD MASK
+img_path = 'img.jpg'
+img = cv2.imread(img_path, 0)
+img_grid = img / 255.0 #sets black to 0 and white to 1 
+
+img_grid = np.transpose(img_grid)
+
+# CREATE GRID
+print("Image is: ", img)
+
+print("Image is: ", img_grid)
 
 # SET GRID
 grid = np.arange(x_num*t_num*1.0).reshape((t_num, x_num))
@@ -180,37 +253,55 @@ cd_grid.fill(0.0)
 cf_grid = np.arange(x_num*t_num*1.0).reshape((t_num, x_num))
 cf_grid.fill(0.0)
 
-# print("Initial Grid: ") 
-# prettyprint(grid)
+print("Initial Grid: ") 
+prettyprint(grid)
 
-# print("EXPLICIT: ")
-#print("The network strand concentration values are: ", ci, " ", cd, " ", cf)
+print("EXPLICIT: ")
 g = explicit(grid, ci_grid, cd_grid, cf_grid, t0, tf, t_step, x0, xf, x_step, alpha_pd_star, alpha_deg_star, x_num, ci, cd, cf)
 grid = np.transpose(g)
 
 print("Resulting Grid: ")
 prettyprint(grid)
-# print(grid[len(grid)-1][len(grid[0])-1])
 
 # GRAPH 
 plt.imshow(grid, interpolation='none', cmap=cm.Blues)
 plt.show()
 
-# # RESET GRID
-# grid = np.arange(x_num*t_num*1.0).reshape((t_num, x_num))
-# grid.fill(0.0)
-# grid[0] = 1.0
+# RESET GRID
+grid = np.arange(x_num*t_num*1.0).reshape((t_num, x_num))
+grid.fill(0.0)
+grid[0] = 1.0
 
-# print("IMPLICIT: ")
-# g = implicit(grid, t0, tf, t_step, x0, xf, x_step, alpha_pd_star, alpha_deg_star, x_num)
-# grid = np.transpose(g)
+print("IMPLICIT: ")
+g = implicit(grid, ci_grid, cd_grid, cf_grid, t0, tf, t_step, x0, xf, x_step, alpha_pd_star, alpha_deg_star, x_num, ci, cd, cf)
+grid = np.transpose(g)
 
-# print("Resulting Grid: ")
-# prettyprint(grid)
+print("Resulting Grid: ")
+prettyprint(grid)
 
-# # GRAPH 
-# plt.imshow(grid, interpolation='none', cmap=cm.Blues)
-# plt.show()
+# GRAPH 
+plt.imshow(grid, interpolation='none', cmap=cm.Blues)
+plt.show()
+
+# # MODULUS
+# modulus_grid = np.arange(x_num*t_num*1.0).reshape((t_num, x_num))
+# modulus_grid.fill(0.0)
+# m = modulus(g, modulus_grid, t0, tf, t_step, x0, xf, x_step, f, kB, T)
+# print("Modulus: ")
+# prettyprint(np.transpose(m))
+
+# # SWELLING
+# swelling_grid = np.arange(x_num*t_num*1.0).reshape((t_num, x_num))
+# swelling_grid.fill(0.0)
+# s = swelling(m, swelling_grid, t0, tf, t_step, x0, xf, x_step)
+# print("Swelling: ")
+# prettyprint(np.transpose(s))
+
+# np.polyfit(np.transpose(s), np.transpose(m), 2)
+# numpy.polyfit(x, y, deg, rcond=None, full=False, w=None, cov=False)[source]¶
+
+# TRIANGLE
+# isInside(, x, y)
 
 
 
