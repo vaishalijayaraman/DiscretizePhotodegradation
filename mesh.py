@@ -1,41 +1,122 @@
-import meshpy.triangle as triangle
+# import meshpy.triangle as triangle
+# import numpy as np
+# import numpy.linalg as la
+# from six.moves import range
+
+# def round_trip_connect(start, end):
+#     return [(i, i+1) for i in range(start, end)] + [(end, start)]
+
+# def main():
+#     points = [(1, 0), (1, 1), (-1, 1), (-1, -1), (1, -1), (1, 0)]
+#     #points = [(-1, 0), (-1, 1), (1, 1), (1, -1), (-1, -1), (-1, 0)]
+#     facets = round_trip_connect(0, len(points)-1)
+
+#     print("okay1")
+#     circ_start = len(points)
+#     points.extend(
+#             (3 * np.cos(angle), 3 * np.sin(angle))
+#             for angle in np.linspace(0, 2*np.pi, 30, endpoint=False))
+#     print("okay2")
+#     facets.extend(round_trip_connect(circ_start, len(points)-1))
+#     print("okay3")
+
+#     def needs_refinement(vertices, area):
+#         bary = np.sum(np.array(vertices), axis=0)/3
+#         max_area = 0.001 + (la.norm(bary, np.inf)-1)*0.01
+#         return bool(area > max_area)
+
+#     print("okay4")
+
+#     info = triangle.MeshInfo()
+#     info.set_points(points)
+#     info.set_holes([(0, 0)])
+#     info.set_facets(facets)
+
+#     print("okay5")
+
+#     mesh = triangle.build(info, refinement_func=needs_refinement)
+#     #mesh = triangle.build(info)
+
+#     print("okay6")
+
+#     mesh_points = np.array(mesh.points)
+#     print("mesh points: ", mesh_points)
+#     mesh_tris = np.array(mesh.elements)
+
+#     import matplotlib.pyplot as pt
+#     pt.triplot(mesh_points[:, 0], mesh_points[:, 1], mesh_tris)
+#     pt.show()
+
+# if __name__ == "__main__":
+#     main()
+
+# SOURCE CODE FROM examples/test_tri_simple_square.py
+
+from __future__ import absolute_import
+from __future__ import print_function
 import numpy as np
-import numpy.linalg as la
 from six.moves import range
 
+import meshpy.triangle as triangle
+
+# points = [(1,1),(-1,1),(-1,-1),(1,-1)]
+n = int((94*176)/1000)
+print (n)
+points = [(n,n),(-n,n),(-n,-n),(n,-n)]
+
 def round_trip_connect(start, end):
-    return [(i, i+1) for i in range(start, end)] + [(end, start)]
+  result = []
+  for i in range(start, end):
+    result.append((i, i+1))
+  result.append((end, start))
+  return result
 
-def main():
-    points = [(1, 0), (1, 1), (-1, 1), (-1, -1), (1, -1), (1, 0)]
-    facets = round_trip_connect(0, len(points)-1)
+info = triangle.MeshInfo()
+info.set_points(points)
+info.set_facets(round_trip_connect(0, len(points)-1))
 
-    circ_start = len(points)
-    points.extend(
-            (3 * np.cos(angle), 3 * np.sin(angle))
-            for angle in np.linspace(0, 2*np.pi, 30, endpoint=False))
+mesh = triangle.build(info, max_volume=0.5, min_angle=25)
 
-    facets.extend(round_trip_connect(circ_start, len(points)-1))
+triangle.write_gnuplot_mesh("triangles.dat", mesh)
 
-    def needs_refinement(vertices, area):
-        bary = np.sum(np.array(vertices), axis=0)/3
-        max_area = 0.001 + (la.norm(bary, np.inf)-1)*0.01
-        return bool(area > max_area)
+mesh_points = np.array(mesh.points)
+print("mesh points: ", mesh_points)
+mesh_tris = np.array(mesh.elements)
 
-    info = triangle.MeshInfo()
-    info.set_points(points)
-    info.set_holes([(0, 0)])
-    info.set_facets(facets)
+import matplotlib.pyplot as pt
+pt.triplot(mesh_points[:, 0], mesh_points[:, 1], mesh_tris)
+pt.show()
 
-    mesh = triangle.build(info, refinement_func=needs_refinement)
 
-    mesh_points = np.array(mesh.points)
-    print("mesh points: ", mesh_points)
-    mesh_tris = np.array(mesh.elements)
+temp_list = []
+lst = []
+filepath = "triangles.dat" 
+with open(filepath) as fp:
+    for cnt, line in enumerate(fp):
+        if line != '\n':
+            lst = line.split()
+            temp_list.append(float(lst[0]))
+            temp_list.append(float(lst[1]))
+fp.close()
+# print("Temp List: ", temp_list)
+# print("Length of temp is: ", len(temp_list))
 
-    import matplotlib.pyplot as pt
-    pt.triplot(mesh_points[:, 0], mesh_points[:, 1], mesh_tris)
-    pt.show()
+tri_list = [temp_list[x:x+6] for x in range(0, len(temp_list),8)]
+# print ("Triangles List: ", tri_list)
 
-if __name__ == "__main__":
-    main()
+# # COMPUTE C,D VALUES
+# cdVals = []
+# for i in range (len(tri_list)):
+#     tripts = []
+#     #scale the points on surface gel
+#     #get the corresponding coordinates x,y
+#     #loop through each coordinate 
+#     if isInside(tri_list[i][0], tri_list[i][1], tri_list[i][2], tri_list[i][3], tri_list[i][4], tri_list[i][5], x, y):
+#         tripts.append([x,y])
+
+
+
+
+
+
+

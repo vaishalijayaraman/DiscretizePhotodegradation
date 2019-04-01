@@ -1,7 +1,7 @@
 import numpy as np
 
 def getK(x,y,z):
-	return 1
+	return z
 
 def func(x,y,z):
 	return 1
@@ -14,18 +14,18 @@ k = getK(x,y,z)
 
 a = 2*x*y*z
 b = -4*x*y*(z**2/2)
-c = 2*k*x*y*z #GENERALIZE
+c = 2*k*x*y*z #GENERALIZE 
 
 d = -4*x*y*(z**2/2)
 e = 8*(z**3/3)*x*y
 f = -4*k*x*y*(z**2/2) #GENERALIZE
 
-print("a : ", a)
-print("b : ", b)
-print("c : ", c)
-print("d : ", d)
-print("e : ", e)
-print("f : ", f)
+# print("a : ", a)
+# print("b : ", b)
+# print("c : ", c)
+# print("d : ", d)
+# print("e : ", e)
+# print("f : ", f)
 
 C = np.array([[a, b], [d, e]])
 D = np.array([[c], [f]])
